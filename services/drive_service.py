@@ -1,11 +1,9 @@
 """
 drive_service.py
 ----------------
-All communication with Google Drive.
-
-Upload flow:
-  1. Upload file to service account's space
-  2. Share the file with the teacher's Gmail so it appears in "Shared with me"
+Uses domain-wide delegation to upload as the teacher directly.
+The service account impersonates the teacher's Gmail so files
+land in the teacher's Drive with no quota issues.
 """
 
 import io
@@ -14,12 +12,17 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 from google.oauth2.service_account import Credentials
 
-SCOPES = ["https://www.googleapis.com/auth/drive"]
+SCOPES = ["https://www.googleapis.com/auth/drive.file"]
 
 
 def _get_drive_service():
     creds_dict = dict(st.secrets["google_credentials"])
-    creds = Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
+    teacher_email = st.secrets["settings"]["teacher_email"]
+    creds = Credentials.from_service_account_info(
+        creds_dict,
+        scopes=SCOPES,
+        subject=teacher_email,   # ← impersonate the teacher's Gmail
+    )
     return build("drive", "v3", credentials=creds)
 
 
@@ -36,16 +39,20 @@ def upload_image(
     student_id: str,
 ) -> str:
     service = _get_drive_service()
-    teacher_email = st.secrets["settings"]["teacher_email"]
+    folder_id = st.secrets["settings"]["drive_folder_id"]
     filename = build_filename(question_id, student_name, student_id)
 
-    # Step 1: Upload the file
-    file_metadata = {"name": filename}
+    file_metadata = {
+        "name": filename,
+        "parents": [folder_id],
+    }
+
     media = MediaIoBaseUpload(
         io.BytesIO(image_bytes),
         mimetype="image/jpeg",
         resumable=False,
     )
+
     uploaded = (
         service.files()
         .create(
@@ -55,18 +62,5 @@ def upload_image(
         )
         .execute()
     )
-    file_id = uploaded.get("id", "")
 
-    # Step 2: Share with teacher's Gmail → appears in "Shared with me"
-    permission = {
-        "type": "user",
-        "role": "writer",
-        "emailAddress": teacher_email,
-    }
-    service.permissions().create(
-        fileId=file_id,
-        body=permission,
-        sendNotificationEmail=False,
-    ).execute()
-
-    return file_id
+    return uploaded.get("id", "")
