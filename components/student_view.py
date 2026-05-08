@@ -69,7 +69,7 @@ def render() -> None:
     # ── Form ──────────────────────────────────────────────────────────────────
     with st.form("submission_form", clear_on_submit=False):
         student_name = st.text_input("Full Name", placeholder="e.g. Ali Hassan", max_chars=60)
-        student_id   = st.text_input("Student ID", placeholder="e.g. 202312345", max_chars=20)
+        student_id   = st.text_input("Student ID", placeholder="e.g. 1221321", max_chars=20)
         photos = st.file_uploader(
             "Upload photo(s) of your solution",
             type=["jpg", "jpeg", "png", "heic"],
