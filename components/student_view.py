@@ -19,8 +19,6 @@ def render() -> None:
     _, refresh_col = st.columns([5, 1])
     with refresh_col:
         if st.button("🔄 Refresh"):
-            # Clear code verification on refresh so student re-enters it
-            st.session_state.pop("code_verified", None)
             st.rerun()
 
     try:
